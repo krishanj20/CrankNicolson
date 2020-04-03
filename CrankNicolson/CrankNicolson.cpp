@@ -111,7 +111,7 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 int main() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
 	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.,
-		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1, sigma = 3.73;
+		mu = 0.0073, X = 56.47, C = 0, alpha = 0.01, beta = 1., sigma = 3.73;
 	// declare and initialise grid paramaters 
 	int iMax = 10, jMax = 10;
 	// declare and initialise local variables (ds,dt)
@@ -123,6 +123,8 @@ int main() {
 	int length = 50;
 	//vector<double> S(length+1);
 	//vector<double> V(length+1);
+	cout << CrankNicolson(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+		S_max, tol, omega, iterMax) << endl;
 	std::ofstream outFile("./Varying_S.txt");
 	for (int j = 0; j <= length -1; j++) {
 		//S[j] = j * S_max / length;
