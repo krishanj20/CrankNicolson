@@ -45,20 +45,20 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 		{
 			//COURSEWORK EDIT
 			//This is from geenral PDE, edited
-			a[j] = (1/(4*dS*dS)) * sigma * sigma* pow(j*dS, 2*beta) - (1/(4*dS)) * kappa * ( theta - j * dS);
-			b[j] = -1/dt - (1/(dS*dS)) *sigma * sigma * pow(j*dS,2*beta) - r/2;
-			c[j] = (1 / (4 * dS * dS)) * sigma * sigma * pow(j * dS, 2 * beta) + (1 / (4 * dS)) * kappa * (theta - j * dS);
-			d[j] = -a[j] * vOld[j - 1] - (b[j] + 2. / dt) * vOld[j] - c[j] * vOld[j + 1];
+			a[j] = sigma * sigma * pow(j * dS, 2 * beta) / (4 * dS * dS) - kappa * (theta - j * dS) / 4 * dS;
+			b[j] = -1 / dt - sigma * sigma * pow(j * dS, 2 * beta) / 2 * dS * dS - r / 2;
+			c[j] = sigma * sigma * pow(j * dS, 2 * beta) / (4 * dS * dS) + kappa * (theta - j * dS) / 4 * dS;
+			d[j] = -a[j] * vOld[j - 1] - (b[j] + 2. / dt) * vOld[j] - c[j] * vOld[j + 1] - C * exp(-alpha * i * dt);
 		}
 
 		//COURSEWORK EDIT
 		//THis is from calculating the general solution
-		double A = R * exp((kappa + r) * (i*dt - T));
-		double B = X * A - C / (alpha + r) * exp(-alpha * i * dt) + C / (alpha + r) * exp(-(alpha * r) * T) - X * R * exp(-r * T);
+		double A = R * exp((kappa + r) * (i * dt - T));
+		double B = -X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
 		a[jMax] = 0.;
 		b[jMax] = 1.;
 		c[jMax] = 0.;
-		d[jMax] = A*jMax*dS + B;
+		d[jMax] = A * jMax * dS + B;
 
 		// solve matrix equations with SOR
 		int sor;
@@ -110,17 +110,21 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 
 int main() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
-	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.0833333333,
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0,
 		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73;
 	// declare and initialise grid paramaters 
-	int iMax = 10, jMax = 10;
+	int iMax = 100, jMax = 10;
 	// declare and initialise local variables (ds,dt)
-	double S_max = 5 * X;
-	int iterMax = 10000;
-	double tol = 1.e-8, omega = 1.;
+	double S_max = 2 * X;
+	int iterMax = 1000000;
+	double tol = 1.e-6, omega = 1.;
+
+	//Checking valu against theory
+	cout << CrankNicolson(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+		S_max, tol, omega, iterMax) << endl;
 
 	//Create graph of varying  S and optionvalue
-	int length = 50;
+	int length = 100;
 
 	std::ofstream outFile1("./Varying_S_beta_1.txt");
 	std::ofstream outFile2("./Varying_S_beta_425.txt");
