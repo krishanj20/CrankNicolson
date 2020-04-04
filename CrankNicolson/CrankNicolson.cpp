@@ -37,9 +37,9 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 		//This is boundary condition at S=0: edited
 		double theta = (1 + mu) * X * exp(-mu * i * dt);
 		a[0] = 0.;
-		b[0] = (-1/dt - kappa* theta / dS - r/2);
+		b[0] = (-1/dt - kappa* theta / dS - r);
 		c[0] = kappa* theta / dS;
-		d[0] = -(1/dt - r/2)*vOld[1] - C*exp(-alpha*i*dt);
+		d[0] = -vOld[1]/dt - C*exp(-alpha*i*dt);
 
 		for (int j = 1; j <= jMax - 1; j++)
 		{
