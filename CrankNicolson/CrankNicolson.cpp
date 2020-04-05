@@ -35,11 +35,11 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 		// set up matrix equations a[j]=
 		//COURSEWORK EDIT
 		//This is boundary condition at S=0: edited
-		double theta = (1 + mu) * X * exp(-mu * i * dt);
+		double theta = (1 + mu) * X * exp(mu * i * dt);
 		a[0] = 0.;
-		b[0] = (-1/dt - kappa* theta / dS - r);
-		c[0] = kappa* theta / dS;
-		d[0] = -vOld[1]/dt - C*exp(-alpha*i*dt);
+		b[0] = -1 / dt - kappa * theta / dS - r;
+		c[0] = kappa * theta / dS;
+		d[0] = -C * exp(-alpha * i * dt) - vOld[1] / dt;
 
 		for (int j = 1; j <= jMax - 1; j++)
 		{
@@ -113,32 +113,32 @@ int main() {
 	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0,
 		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73;
 	// declare and initialise grid paramaters 
-	int iMax = 100, jMax = 10;
+	int iMax = 100, jMax = 16;
 	// declare and initialise local variables (ds,dt)
-	double S_max = 2 * X;
-	int iterMax = 1000000;
-	double tol = 1.e-6, omega = 1.;
+	double S_max = 5 * X;
+	int iterMax = 3000000;
+	double tol = 1.e-4, omega = 1.;
 
 	//Checking valu against theory
-	cout << CrankNicolson(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+	cout << CrankNicolson(5, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
 		S_max, tol, omega, iterMax) << endl;
 
 	//Create graph of varying  S and optionvalue
-	int length = 100;
-
+	int length = 300;
+	double S_maxi = 2 * X;
 	std::ofstream outFile1("./Varying_S_beta_1.txt");
 	std::ofstream outFile2("./Varying_S_beta_425.txt");
-	for (int j = 0; j <= length -1; j++) {
+	for (int j = 1; j <= length -1; j++) {
 		//Case 1
 		beta = 1.;
 		sigma = 0.369;
-		outFile1 << j * S_max / length << " , " << CrankNicolson(j * S_max / length, X, F, T, r, sigma, R, kappa, mu, C , alpha, beta, iMax, jMax,
+		outFile1 << j * S_maxi / length << " , " << CrankNicolson(j * S_maxi / length, X, F, T, r, sigma, R, kappa, mu, C , alpha, beta, iMax, jMax,
 			S_max, tol, omega, iterMax) << "\n";
 
 		//Case 2
 		beta = 0.425;
 		sigma = 3.73;
-		outFile2 << j * S_max / length << " , " << CrankNicolson(j * S_max / length, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+		outFile2 << j * S_maxi / length << " , " << CrankNicolson(j * S_maxi / length, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
 			S_max, tol, omega, iterMax) << "\n";
 	}
 }
