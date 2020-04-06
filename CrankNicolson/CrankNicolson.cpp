@@ -37,9 +37,10 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 		//This is boundary condition at S=0: edited
 		double theta = (1 + mu) * X * exp(mu * i * dt);
 		a[0] = 0.;
-		b[0] = -1 / dt - kappa * theta / dS - r;
+		b[0] = -1 / dt - kappa * theta / dS - r/2;
 		c[0] = kappa * theta / dS;
-		d[0] = -C * exp(-alpha * i * dt) - vOld[1] / dt;
+		d[0] = -C * exp(-alpha * i * dt) - vOld[0] / dt + r*vOld[0]/2;
+
 
 		for (int j = 1; j <= jMax - 1; j++)
 		{
@@ -54,7 +55,8 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 		//COURSEWORK EDIT
 		//THis is from calculating the general solution
 		double A = R * exp((kappa + r) * (i * dt - T));
-		double B = -X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
+		//double B = X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
+		double B = X * R * (1 - exp((kappa + r) * (i * dt - T))) + C * (exp(-alpha * i * dt) - exp(-alpha * T)) / (alpha + r);
 		a[jMax] = 0.;
 		b[jMax] = 1.;
 		c[jMax] = 0.;
@@ -110,24 +112,29 @@ double CrankNicolson(double S0, double X, double F, double T, double r, double s
 
 int main() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
-	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0,
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.083333333,
 		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73;
 	// declare and initialise grid paramaters 
 	int iMax = 100, jMax = 16;
 	// declare and initialise local variables (ds,dt)
-	double S_max = 5 * X;
-	int iterMax = 3000000;
-	double tol = 1.e-4, omega = 1.;
+	double S_max = 10 * X;
+	int iterMax = 5000000;
+	double tol = 1.e-2, omega = 1.;
 
 	//Checking valu against theory
 	cout << CrankNicolson(5, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
 		S_max, tol, omega, iterMax) << endl;
 
 	//Create graph of varying  S and optionvalue
-	int length = 300;
+	int length = 100;
 	double S_maxi = 2 * X;
 	std::ofstream outFile1("./Varying_S_beta_1.txt");
 	std::ofstream outFile2("./Varying_S_beta_425.txt");
+
+//	std::ofstream outFile3("./lowbeta.txt");
+//	std::ofstream outFile4("./midbeta.txt");
+	std::ofstream outFile5("./highbeta.txt");
+
 	for (int j = 1; j <= length -1; j++) {
 		//Case 1
 		beta = 1.;
@@ -139,6 +146,18 @@ int main() {
 		beta = 0.425;
 		sigma = 3.73;
 		outFile2 << j * S_maxi / length << " , " << CrankNicolson(j * S_maxi / length, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+			S_max, tol, omega, iterMax) << "\n";
+
+		//Case 4
+		//beta = 0.5;
+		//sigma = 0.369;
+		//outFile4 << j * S_maxi / length << " , " << CrankNicolson(j * S_maxi / length, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
+		//	S_max, tol, omega, iterMax) << "\n";
+
+		//Case 5
+		beta = 0.9;
+		sigma = 0.369;
+		outFile5 << j * S_maxi / length << " , " << CrankNicolson(j * S_maxi / length, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax,
 			S_max, tol, omega, iterMax) << "\n";
 	}
 }
