@@ -8,8 +8,9 @@
 using namespace std::chrono;
 using namespace std;
 
+
 void sorSolve_AM(const std::vector<double>& a, const std::vector<double>& b, const std::vector<double>& c, const std::vector<double>& rhs,
-	std::vector<double>& x, int iterMax, double tol, double omega, int& sor, double dS)
+	std::vector<double>& x, int iterMax, double tol, double omega, int& sor, double dS, double cp, double t0, int i, double dt)
 {
 	// assumes vectors a,b,c,d,rhs and x are same size (doesn't check)
 	int n = a.size() - 1;
@@ -47,7 +48,7 @@ search for COURSEWORK EDIT for parts that needed to be altered for the coursewor
  */
 
 double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double r, double sigma,
-	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax)
+	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax, double cp, double t0)
 {
 	// declare and initialise local variables (ds,dt)
 	double dS = S_max / jMax;
@@ -94,11 +95,10 @@ double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double 
 		d[jMax] = dS * jMax * A + B;
 		int sor;
 		// solve matrix equations with SOR
-		sorSolve_AM(a, b, c, d, vNew, iterMax, tol, omega, sor, dS);
+		sorSolve_AM(a, b, c, d, vNew, iterMax, tol, omega, sor, dS, cp, t0, i, dt);
 		if (sor == iterMax)
-			cout << "NOT SOLVED" << endl;
-			return -1;
-
+			//cout << "NOT SOLVED" << endl;
+			//break;
 
 		// set old=new
 		vOld = vNew;
@@ -121,4 +121,42 @@ double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double 
 		}
 	}
 	return sum;
+}
+
+//Get data for ameribond
+void getAmeribondData() {
+	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.0833333333,
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 0.425, sigma = 3.73, tol = 1.e-1, omega = 1., S_max = 10 * X;
+	//
+	int iterMax = 10000, iMax = 40, jMax = 25;
+	beta = 0.425;
+	sigma = 3.73;
+	double S0 = X;
+	double t0 = 1.2448, cp = 67;
+
+	//Checking value against theory
+	std::ofstream analytical("./Ameribond1.txt");
+	for (int s = 1; s <= 100; s++) {
+		analytical << s << " , " << crank_nicolson_AM_LINEAR(s, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax, cp, t0) << "\n";
+	}
+	cout << "AMERICAN BOND PART 1 DONE" << endl;
+
+	//Checking how the value changes with different values of r
+	std::ofstream r_file("./Ameribond_r.txt");
+	for (int s = 1; s <= 66; s++) {
+		r_file << s << " , " <<
+			crank_nicolson_AM_LINEAR(s, X, F, T, 0.0019, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax,cp, t0) << " , " <<
+			crank_nicolson_AM_LINEAR(s, X, F, T, 0.0038, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax,cp, t0) << " , " <<
+			crank_nicolson_AM_LINEAR(s, X, F, T, 0.0057, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax, cp, t0) <<
+			"\n";
+
+	}
+	cout << "AMERICAN BOND PART 2 DONE" << endl;
+		//auto start = high_resolution_clock::now();
+		//cout << crank_nicolson_AM_LINEAR(14, X, F, T, 0.0057, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax) << endl;
+		//auto stop = high_resolution_clock::now();
+		//auto duration = duration_cast<milliseconds>(stop - start);
+		//cout << duration.count() << endl;
+
 }

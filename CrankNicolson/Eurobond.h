@@ -46,6 +46,7 @@ void sorSolve_EURO(const std::vector<double>& a, const std::vector<double>& b, c
 search for COURSEWORK EDIT for parts that needed to be altered for the coursework
  */
 
+//This contains linear interpolation at the end
 double crank_nicolson_E_LINEAR(double S0, double X, double F, double T, double r, double sigma,
 	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax)
 {
@@ -124,6 +125,7 @@ double crank_nicolson_E_LINEAR(double S0, double X, double F, double T, double r
 
 /* Template code for the Crank Nicolson Finite Difference
  */
+//This contains quadratic interpolation at the end
 double crank_nicolson_E_QUAD(double S0, double X, double F, double T, double r, double sigma,
 	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax)
 {
@@ -163,15 +165,8 @@ double crank_nicolson_E_QUAD(double S0, double X, double F, double T, double r, 
 			c[j] = ((pow(sigma, 2.) * pow(j * dS, 2. * beta)) / (4. * pow(dS, 2.))) + ((kappa * (theta - j * dS)) / (4. * dS));
 			d[j] = (-vOld[j] / dt) - ((pow(sigma, 2.) * pow(j * dS, 2. * beta) / (4. * pow(dS, 2.))) * (vOld[j + 1] - 2. * vOld[j] + vOld[j - 1])) - (((kappa * (theta - j * dS)) / (4. * dS)) * (vOld[j + 1] - vOld[j - 1])) + ((r / 2.) * vOld[j]) - (C * exp(-alpha * dt * i));
 			//
-			/* Krish
-			a[j] = sigma * sigma * pow(j * dS, 2 * beta) / (4 * dS * dS) - kappa * (theta - j * dS) / 4 * dS;
-				  b[j] = -1 / dt - sigma * sigma * pow(j * dS, 2 * beta) / 2 * dS * dS - r / 2;
-				  c[j] = sigma * sigma * pow(j * dS, 2 * beta) / (4 * dS * dS) + kappa * (theta - j * dS) / 4 * dS;
-				  d[j] = -a[j] * vOld[j - 1] - (b[j] + 2. / dt) * vOld[j] - c[j] * vOld[j + 1] - C * exp(-alpha * i * dt);
-			*/
 		}
 		double A = R * exp((kappa + r) * (i * dt - T));
-		//double B = X * R * (1 - exp((kappa + r) * (i * dt - T))) + (C / (alpha + r)) * (exp(-alpha * i * dt) - exp(-alpha * T));
 		double B = -X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
 		a[jMax] = 0;
 		b[jMax] = 1;
@@ -202,6 +197,106 @@ double crank_nicolson_E_QUAD(double S0, double X, double F, double T, double r, 
 	return optionValue;
 }
 
+//This function creates a txt file (sigmabeta.txt) Which explores the effect of changinging sigma and beta on option value
+void Getsigmabeta() {
+	//Creates three csv files with increasing sigma at a given beta for a fixed s0
+	//	double S0 = X;
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.083333333333,
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73, tol = 1.e-7, omega = 1., S_max = 10 * X;
+	//
+	int iterMax = 10000, iMax = 100, jMax = 200;
+	double S0 = X;
+	jMax = 40;
+	iMax = 26;
+	double sMax = 20 * X;
+	beta = 0.425;
+	sigma = 3.73;
+
+	//Explore effect of Smax
+	//Look at given imax and jmax, then increase Smax
+	std::ofstream sigmabeta("./sigmabeta.txt");
+	for (int i = 0; i < 11; i++) {
+		sigmabeta << i * 0.5 << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma = i*0.5, R, kappa, mu, C, alpha, 0.2, iMax, jMax, sMax, tol, omega, iterMax) << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma = i * 0.5, R, kappa, mu, C, alpha, 0.8, iMax, jMax, sMax, tol, omega, iterMax) << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma = i * 0.5, R, kappa, mu, C, alpha, 1.2, iMax, jMax, sMax, tol, omega, iterMax) <<
+			"\n";
+	}
+	cout << "DONE V FUNC S_MAX" << endl;
+}
+
+//This attempts to help find the most efficient value for imax, jmax and Smax
+void GetEfficientResult() {
+	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.083333333333,
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73, tol = 1.e-7, omega = 1., S_max = 10 * X;
+	//
+	int iterMax = 10000, iMax = 100, jMax = 200;
+	double S0 = X;
+	beta = 0.425;
+	sigma = 3.73;
+	jMax = 40*10;
+	iMax = 26*10;
+	double sMax = 200 * X;
+	cout <<
+		"imax  = " << iMax << "   " <<
+		"jmax  = " << jMax << "   " <<
+		"Smax  = " << sMax << "   ";
+	auto start = high_resolution_clock::now();
+	double V1 = crank_nicolson_E_QUAD(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, sMax, tol, omega, iterMax);
+	auto stop = high_resolution_clock::now();
+	auto duration1 = duration_cast<microseconds>(stop - start);
+	cout << "OPTION VALUE = " << V1 << "  ";
+	cout << "DURATION (microseconds): " << duration1.count() << endl;
+}
+
+//This code creates csv files to allow us to explore the effect of imax, jmax and smax on time
+void GetTimeData() {
+	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.08333333,
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73, tol = 1.e-7, omega = 1., S_max = 10 * X;
+	//
+	int iterMax = 10000, iMax = 100, jMax = 200;
+	double S0 = X;
+	beta = 0.425;
+	sigma = 3.73;
+	//Get data for increasing smax with time
+	//Look at given imax and jmax, then increase Smax
+	std::ofstream time_sMax("./time_sMax.txt");
+	for (int i = 6; i < 20; i++) {
+		time_sMax << i * X << " , ";
+			auto start = high_resolution_clock::now();
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, i * X, tol, omega, iterMax);
+			auto stop = high_resolution_clock::now();
+			auto duration = duration_cast<milliseconds>(stop - start);
+			time_sMax << duration.count() << "\n";
+	}
+	//Get data for increasing imax with time
+		//Look at given imax and jmax, then increase Smax
+	std::ofstream time_iMax("./time_iMax.txt");
+	for (int i = 0; i < 200; i++) {
+		time_iMax << i << " , ";
+		auto start = high_resolution_clock::now();
+		crank_nicolson_E_LINEAR(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, i, jMax, S_max, tol, omega, iterMax);
+		auto stop = high_resolution_clock::now();
+		auto duration = duration_cast<milliseconds>(stop - start);
+		time_iMax << duration.count() << "\n";
+	}
+	cout << "DONE iMax as function of time" << endl;
+	//Get data for increasing jmax with timw
+	std::ofstream time_jMax("./time_jMax.txt");
+	for (int i = 1; i < 200; i++) {
+		time_jMax << i << " , ";
+		auto start = high_resolution_clock::now();
+		crank_nicolson_E_LINEAR(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, i, S_max, tol, omega, iterMax);
+		auto stop = high_resolution_clock::now();
+		auto duration = duration_cast<milliseconds>(stop - start);
+		time_jMax << duration.count() << "\n";
+	}
+}
+
+
+//This populates the rest of the csv files on european bond data
 void getEurobondData() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
 	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.08333333,
