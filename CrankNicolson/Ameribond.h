@@ -21,22 +21,35 @@ void sorSolve_AM(const std::vector<double>& a, const std::vector<double>& b, con
 		// implement sor in here
 		{
 			double y = (rhs[0] - c[0] * x[1]) / b[0];
-			x[0] = max(x[0] + omega * (y - x[0]),0.);
+			error += std::fabs(rhs[0] - b[0] * x[0] - c[0] * x[1]);
+			if (i * dt < t0) {
+				x[0] = max(0., min(cp, x[0] + omega * (y - x[0])));
+			}
+			else {
+				x[0] = max(x[0] + omega * (y - x[0]), 0.);
+			}
 		}
 		for (int j = 1; j < n; j++)
 		{
 			double y = (rhs[j] - a[j] * x[j - 1] - c[j] * x[j + 1]) / b[j];
-			x[j] = max(x[j] + omega * (y - x[j]), j*dS);
+			error += std::fabs(rhs[j] - a[j] * x[j - 1] - b[j] * x[j] - c[j] * x[j + 1]);
+			if (i * dt < t0) {
+				x[j] = max(min(x[j] + omega * (y - x[j]),cp), j * dS);
+			}
+			else {
+				x[j] = max(x[j] + omega * (y - x[j]), j * dS);
+			}
 		}
 		{
 			double y = (rhs[n] - a[n] * x[n - 1]) / b[n];
-			x[n] = max(x[n] + omega * (y - x[n]),n*dS);
+			error += std::fabs(rhs[n] - a[n] * x[n - 1] - b[n] * x[n]);
+			if (i * dt < t0) {
+				x[n] = max(min(x[n] + omega * (y - x[n]),cp), n * dS);
+			}
+			else {
+				x[n] = max(x[n] + omega * (y - x[n]), n * dS);
+			}
 		}
-		// calculate residual norm ||r|| as sum of absolute values
-		error += std::fabs(rhs[0] - b[0] * x[0] - c[0] * x[1]);
-		for (int j = 1; j < n; j++)
-			error += std::fabs(rhs[j] - a[j] * x[j - 1] - b[j] * x[j] - c[j] * x[j + 1]);
-		error += std::fabs(rhs[n] - a[n] * x[n - 1] - b[n] * x[n]);
 		// make an exit condition when solution found
 		if (error < tol)
 			break;
@@ -127,7 +140,7 @@ double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double 
 void getAmeribondData() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
 	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.0833333333,
-		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 0.425, sigma = 3.73, tol = 1.e-1, omega = 1., S_max = 10 * X;
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 0.425, sigma = 3.73, tol = 1.e-8, omega = 1., S_max = 10 * X;
 	//
 	int iterMax = 10000, iMax = 40, jMax = 25;
 	beta = 0.425;
