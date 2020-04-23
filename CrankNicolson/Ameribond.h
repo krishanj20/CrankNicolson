@@ -68,6 +68,7 @@ double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double 
 	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax, double cp, double t0)
 {
 	// declare and initialise local variables (ds,dt)
+	cp = 67;
 	double dS = S_max / jMax;
 	double dt = T / iMax;
 	// create storage for the stock price and option price (old and new)
@@ -94,28 +95,82 @@ double crank_nicolson_AM_LINEAR(double S0, double X, double F, double T, double 
 		b[0] = (-1 / dt) - (r / 2) - (kappa * theta / dS);
 		c[0] = (kappa * theta / dS);
 		d[0] = (-C * exp(-alpha * i * dt)) + (vOld[0] * (-(1 / dt) + (r / 2)));
-
 		for (int j = 1; j <= jMax - 1; j++)
 		{
+			//
 			a[j] = (pow(sigma, 2) * pow(j * dS, 2 * beta) / (4 * pow(dS, 2))) - (kappa * (theta - j * dS) / (4 * dS));
 			b[j] = (-1 / dt) - ((pow(sigma, 2.) * pow(j * dS, 2. * beta)) / (2. * pow(dS, 2))) - (r / 2.);
 			c[j] = ((pow(sigma, 2.) * pow(j * dS, 2. * beta)) / (4. * pow(dS, 2.))) + ((kappa * (theta - j * dS)) / (4. * dS));
 			d[j] = (-vOld[j] / dt) - ((pow(sigma, 2.) * pow(j * dS, 2. * beta) / (4. * pow(dS, 2.))) * (vOld[j + 1] - 2. * vOld[j] + vOld[j - 1])) - (((kappa * (theta - j * dS)) / (4. * dS)) * (vOld[j + 1] - vOld[j - 1])) + ((r / 2.) * vOld[j]) - (C * exp(-alpha * dt * i));
 		}
 		double A = R * exp((kappa + r) * (i * dt - T));
-		double B = X * R * (1 - exp((kappa + r) * (i * dt - T))) + (C / (alpha + r)) * (exp(-alpha * i * dt) - exp(-alpha * T));
-		B = X * R * exp((kappa + r) * (dt * i - T)) + C * exp(-alpha * i * dt) / (alpha + r) + R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt);
-		B = -X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
+		double B = -X * A + C * exp(-alpha * i * dt) / (alpha + r) + X * R * exp(r * (i * dt - T)) - C * exp(-(alpha + r) * T + r * i * dt) / (alpha + r);
 		a[jMax] = 0;
 		b[jMax] = 1;
 		c[jMax] = 0;
-		d[jMax] = dS * jMax * A + B;
-		int sor;
+		d[jMax] = jMax * dS * A + B;
 		// solve matrix equations with SOR
-		sorSolve_AM(a, b, c, d, vNew, iterMax, tol, omega, sor, dS, cp, t0, i, dt);
+		int sor;
+		for (sor = 0; sor < iterMax; sor++)
+		{
+			double error = 0.;
+			// implement sor in here
+			{
+				double y = (d[0] - c[0] * vNew[1]) / b[0];
+				y = vNew[0] + omega * (y - vNew[0]);
+				if (i * dt < t0)
+				{
+					y = max(0., min(cp, y));
+				}
+				else
+				{
+					y = std::max(y, R * S[0]);
+				}
+				error += (y - vNew[0]) * (y - vNew[0]);
+				vNew[0] = y;
+			}
+			for (int j = 1; j < jMax; j++)
+			{
+				double y = (d[j] - a[j] * vNew[j - 1] - c[j] * vNew[j + 1]) / b[j];
+				y = vNew[j] + omega * (y - vNew[j]);
+				if (i * dt < t0)
+				{
+					y = max(min(y, cp), j * dS);
+				}
+				else
+				{
+					y = std::max(y, R * j * dS);
+				}
+				error += (y - vNew[j]) * (y - vNew[j]);
+				vNew[j] = y;
+			}
+			{
+				double y = (d[jMax] - a[jMax] * vNew[jMax - 1]) / b[jMax];
+				y = vNew[jMax] + omega * (y - vNew[jMax]);
+				if (i * dt < t0)
+				{
+					y = max(min(y, cp), jMax * dS);
+				}
+				else
+				{
+					y = std::max(y, R * jMax * dS);
+				}
+				error += (y - vNew[jMax]) * (y - vNew[jMax]);
+				vNew[jMax] = y;
+			}
+			// make an exit condition when solution found
+			if (error < tol)
+				break;
+		}
+		if (sor >= iterMax)
+		{
+			std::cout << " Error NOT converging within required iterations\n";
+			std::cout.flush();
+			throw;
+		}
+
 		if (sor == iterMax)
-			//cout << "NOT SOLVED" << endl;
-			//break;
+			return -1;
 
 		// set old=new
 		vOld = vNew;
@@ -164,10 +219,10 @@ double crank_nicolson_AM_FAST(double S0, double X, double F, double T, double r,
 		vNew[j] = max(F, R * S[j]);
 	}
 	// start looping through time levels
-	for (int i = 2 * iMax - 1; i >= 0; i--)
+	for (int i = iMax - 1; i >= 0; i--)
 	{
-		if (i * dt < t0) { dt = t0 / iMax; }
-		if (i * dt >= t0) { dt = (T - t0) / iMax; }
+		//if (i * dt < t0) { dt = t0 / iMax; }
+		//if (i * dt >= t0) { dt = (T - t0) / iMax; }
 		// declare vectors for matrix equations
 		vector<double> a(jMax + 1), b(jMax + 1), c(jMax + 1), d(jMax + 1);
 		// set up matrix equations a[j]=
@@ -285,18 +340,25 @@ void getAmeribondEfficiency() {
 	std::ofstream outFile5("american_varying_smax.txt");
 	cout << "HELLO" << endl;
 	tol = 1.e-7;
-	for (int i = 1; i <= 10; i++)
+	for (int i = 1; i <= 1; i++)
 	{
 		double jMax = 300;
 		double S = X;
 		int sorCount;
 		auto t1 = std::chrono::high_resolution_clock::now();
-		double result = crank_nicolson_AM_FAST(S, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax = 1000, jMax = 300 * i, S_max = S * cp, tol = 1e-8, omega, iterMax, sorCount, t0);
+		double result = crank_nicolson_AM_FAST(S, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax = 1000, jMax = 300 * i, S_max = S * cp, tol = 1e-8, omega, iterMax, sorCount, t0 = 0);
 		auto t2 = std::chrono::high_resolution_clock::now();
 		auto time_taken =
 			std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1)
 			.count();
-		cout << S_max << "," << iMax << "," << jMax << "," << S << " , " << std::fixed << result << "," << time_taken << "\n";
+		cout << result << "," << time_taken << "\n";
+		t1 = std::chrono::high_resolution_clock::now();
+		result = crank_nicolson_AM_LINEAR(S, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax = 1000, jMax = 300 * i, S_max = S * cp, tol = 1e-8, omega, iterMax, sorCount, t0 = 0);
+		t2 = std::chrono::high_resolution_clock::now();
+		time_taken =
+			std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1)
+			.count();
+		cout << result << "," << time_taken << "\n";
 	}
 	outFile5.close();
 
