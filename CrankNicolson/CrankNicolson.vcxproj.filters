@@ -23,8 +23,5 @@
     <ClInclude Include="Eurobond.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="A.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

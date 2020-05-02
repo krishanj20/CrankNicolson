@@ -5,9 +5,37 @@
 #include <vector>
 #include <algorithm>
 #include <chrono> 
+#include <iomanip>
 using namespace std::chrono;
 using namespace std;
 
+double lagrangeInterpolation(const vector<double>& y, const vector<double>& x, double x0, unsigned int n)
+{
+	if (x.size() < n)return lagrangeInterpolation(y, x, x0, x.size());
+	if (n == 0)throw;
+	int nHalf = n / 2;
+	int jStar;
+	double dx = x[1] - x[0];
+	if (n % 2 == 0)
+		jStar = int((x0 - x[0]) / dx) - (nHalf - 1);
+	else
+		jStar = int((x0 - x[0]) / dx + 0.5) - (nHalf);
+	jStar = std::max(0, jStar);
+	jStar = std::min(int(x.size() - n), jStar);
+	if (n == 1)return y[jStar];
+	double temp = 0.;
+	for (unsigned int i = jStar; i < jStar + n; i++) {
+		double  int_temp;
+		int_temp = y[i];
+		for (unsigned int j = jStar; j < jStar + n; j++) {
+			if (j == i) { continue; }
+			int_temp *= (x0 - x[j]) / (x[i] - x[j]);
+		}
+		temp += int_temp;
+	}
+	// end of interpolate
+	return temp;
+}
 void sorSolve_EURO(const std::vector<double>& a, const std::vector<double>& b, const std::vector<double>& c, const std::vector<double>& rhs,
 	std::vector<double>& x, int iterMax, double tol, double omega, int& sor)
 {
@@ -125,8 +153,8 @@ double crank_nicolson_E_LINEAR(double S0, double X, double F, double T, double r
 
 /* Template code for the Crank Nicolson Finite Difference
  */
-//This contains quadratic interpolation at the end
-double crank_nicolson_E_QUAD(double S0, double X, double F, double T, double r, double sigma,
+//This contains lagrangian interpolation at the end
+double crank_nicolson_E_LAG(double S0, double X, double F, double T, double r, double sigma,
 	double R, double kappa, double mu, double C, double alpha, double beta, int iMax, int jMax, int S_max, double tol, double omega, int iterMax)
 {
 	// declare and initialise local variables (ds,dt)
@@ -186,15 +214,50 @@ double crank_nicolson_E_QUAD(double S0, double X, double F, double T, double r, 
 	// finish looping through time levels
 
 	// output the estimated option price
-	double optionValue;
-	{
-		int jStar = S0 / dS;
-		double sum = 0.;
-		sum += (S0 - S[jStar]) / (dS)* vNew[jStar + 1];
-		sum += (S[jStar + 1] - S0) / (dS)* vNew[jStar];
-		optionValue = sum;
-	}
+	double optionValue = lagrangeInterpolation(vNew, S, S0, vNew.size());
 	return optionValue;
+}
+
+void GetEuroEfficiency()
+{
+	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
+	double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.0833333333,
+		mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 0.425, sigma = 3.73, tol = 1.e-7, omega = 1., S_max = 10 * X;
+	//
+
+	int iterMax = 100000;
+	//Create graph of varying S0 and beta and bond
+	int length = 300;
+	int sorCount;
+	double S0 = X;
+	std::ofstream outFile("eurobond_eff.txt");
+	double oldResult = 0, oldDiff = 0;
+	double S = X;
+	int iMax = 100;
+	int jMax = 100;
+	S_max = 200 * X;
+	//cout << crank_nicolson1(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax, sorCount, t0) << endl;
+
+	for (int n = 10; n <= 1000; n *= 2)
+	{
+		//Set aprameters for iteration
+		iMax = n;
+		jMax = n;
+		S_max = 20 * X;
+
+		auto t1 = std::chrono::high_resolution_clock::now();
+		double result = crank_nicolson_E_LINEAR(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, S_max, tol, omega, iterMax);;
+		double diff = result - oldResult;
+		auto t2 = std::chrono::high_resolution_clock::now();
+		auto time_taken = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+
+		outFile << n << "," << setprecision(10) << result << "," << time_taken << "," << setprecision(3) << oldDiff / diff << "\n";
+		cout << "RESULT : " << result << "  TIME: " << time_taken << "," << setprecision(3) << oldDiff / diff << "\n";
+
+		oldDiff = diff;
+		oldResult = result;
+	}
+
 }
 
 //This function creates a txt file (sigmabeta.txt) Which explores the effect of changinging sigma and beta on option value
@@ -224,7 +287,27 @@ void Getsigmabeta() {
 	}
 	cout << "DONE V FUNC S_MAX" << endl;
 }
-
+void GetSmax() {
+	//Explore effect of Smax
+	//Look at given imax and jmax, then increase Smax
+	std::ofstream V_function_sMax("./V_function_sMax.txt");
+	for (int i = 2; i < 20; i++) {
+		// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
+		double T = 3., F = 56., R = 1., r = 0.0038, kappa = 0.083333333333,
+			mu = 0.0073, X = 56.47, C = 0.106, alpha = 0.01, beta = 1., sigma = 3.73, tol = 1.e-7, omega = 1., S_max = 10 * X;
+		//
+		int iterMax = 10000, iMax = 100, jMax = 200;
+		double S0 = X;
+		beta = 0.425;
+		sigma = 3.73;
+		V_function_sMax << i << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 20, 10*i, i * X, tol, omega, iterMax) << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 100, 10*i, i * X, tol, omega, iterMax) << " , " <<
+			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 100, 10*i, i * X, tol, omega, iterMax) <<
+			"\n";
+	}
+	cout << "DONE V FUNC S_MAX" << endl;
+}
 //This attempts to help find the most efficient value for imax, jmax and Smax
 void GetEfficientResult() {
 	// declare and initialise Black Scholes parameters - Currently looking at a solution we can get a definite answer for
@@ -235,15 +318,15 @@ void GetEfficientResult() {
 	double S0 = X;
 	beta = 0.425;
 	sigma = 3.73;
-	jMax = 40*10;
-	iMax = 26*10;
-	double sMax = 200 * X;
+	iMax = 200;
+	jMax = 400;
+	double sMax = 50 * X;
 	cout <<
 		"imax  = " << iMax << "   " <<
 		"jmax  = " << jMax << "   " <<
 		"Smax  = " << sMax << "   ";
 	auto start = high_resolution_clock::now();
-	double V1 = crank_nicolson_E_QUAD(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, sMax, tol, omega, iterMax);
+	double V1 = crank_nicolson_E_LINEAR(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, sMax, tol, omega, iterMax);
 	auto stop = high_resolution_clock::now();
 	auto duration1 = duration_cast<microseconds>(stop - start);
 	cout << "OPTION VALUE = " << V1 << "  ";
@@ -263,7 +346,7 @@ void GetTimeData() {
 	//Get data for increasing smax with time
 	//Look at given imax and jmax, then increase Smax
 	std::ofstream time_sMax("./time_sMax.txt");
-	for (int i = 6; i < 20; i++) {
+	for (int i = 4; i < 20; i++) {
 		time_sMax << i * X << " , ";
 			auto start = high_resolution_clock::now();
 			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, iMax, jMax, i * X, tol, omega, iterMax);
@@ -271,6 +354,7 @@ void GetTimeData() {
 			auto duration = duration_cast<milliseconds>(stop - start);
 			time_sMax << duration.count() << "\n";
 	}
+	
 	//Get data for increasing imax with time
 		//Look at given imax and jmax, then increase Smax
 	std::ofstream time_iMax("./time_iMax.txt");
@@ -292,7 +376,9 @@ void GetTimeData() {
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<milliseconds>(stop - start);
 		time_jMax << duration.count() << "\n";
+		
 	}
+
 }
 
 
@@ -309,10 +395,11 @@ void getEurobondData() {
 	double V1 = 0, V2 = 0;
 
 	//Accuracy code
+	
 	for (int i = 1; i < 400; i++) {
-
+		
 		auto start = high_resolution_clock::now();
-		V1 = crank_nicolson_E_QUAD(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 10 * 26, 10 * 40, 10 * 20 * X, tol, omega, iterMax);
+		V1 = crank_nicolson_E_LAG(S0, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 26, 40, 5 * X, tol, omega, iterMax);
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(stop - start);
 		if (abs(V2 - V1) < 1e-5) {
@@ -326,7 +413,7 @@ void getEurobondData() {
 		}
 	}
 	//
-
+	
 
 
 	// declare and initialise grid paramaters 
@@ -341,7 +428,7 @@ void getEurobondData() {
 	for (int s = 1; s <= 300; s++) {
 		analytical << s << " , " << crank_nicolson_E_LINEAR(s, X, F, T, r, 3.73, R, 0, mu, C, alpha, 1., iMax, jMax, S_max, tol, omega, iterMax) << "\n";
 	}
-
+	
 	//Create graph of varying  S and optionvalue
 	int length = 50;
 	double S_maxi = 4 * X;
@@ -379,7 +466,7 @@ void getEurobondData() {
 	//Look at given imax and jmax, then increase Smax
 	std::ofstream V_function_sMax("./V_function_sMax.txt");
 	for (int i = 6; i < 20; i++) {
-		V_function_sMax << i * X << " , " <<
+		V_function_sMax << i << " , " <<
 			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 100, 50 * i, i * X, tol, omega, iterMax) << " , " <<
 			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 100, 2 * i, i * X, tol, omega, iterMax) << " , " <<
 			crank_nicolson_E_LINEAR(X, X, F, T, r, sigma, R, kappa, mu, C, alpha, beta, 100, 2 * i, i * X, tol, omega, iterMax) <<

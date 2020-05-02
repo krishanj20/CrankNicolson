@@ -10,5 +10,5 @@ using namespace std::chrono;
 using namespace std;
 
 int main() {
-	getAmeribondEfficiency();
+	GetEfficientResult();
 }
